@@ -1,0 +1,50 @@
+###################################
+# Python / FastAPI Backend
+###################################
+# virtual environments
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Vector DB persistence
+vectorstore/
+chroma/
+vectorstore/
+chroma/
+
+# Temporary files
+*.tmp
+*.swp
+
+
+###################################
+# Frontend (React / Vite / Next.js)
+###################################
+# node_modules/
+# dist/
+# build/
+# .cache/
+# .next/
+# out/
+
+# local environment configs
+# frontend/.env
+# frontend/.env.local
+# frontend/.env.development
+# frontend/.env.production
+
+# logs
+# npm-debug.log*
+# yarn-debug.log*
+# yarn-error.log*
+# pnpm-debug.log*
+
+# OS files
+# .DS_Store
+# Thumbs.db
