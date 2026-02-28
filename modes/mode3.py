@@ -2,10 +2,7 @@
 
 import time
 from llm.client import call_llm_raw
-from llm.prompt_mode3 import (
-    build_mode3_final_prompt,
-    build_mode3_discovery_prompt,
-)
+from llm.common import build_discovery_prompt, build_sql_after_discovery_prompt, SQL_PROMPT_FINALITY
 from db.bigquery import run_raw_query
 from utils.utils import clean_sql, is_select_sql
 from utils.expression import express_mode_result
@@ -14,7 +11,7 @@ from experiment.logging_schema import LLMStageMetric
 from config import LONG_TOKEN_LIMIT
 
 
-def mode3_answer(question: str, level: int = 1) -> ModeResult:
+def mode3_answer(question: str) -> ModeResult:
     """
     Mode 3:
     - Discovery LLM
@@ -25,9 +22,6 @@ def mode3_answer(question: str, level: int = 1) -> ModeResult:
     Pure architecture output (ModeResult).
     """
 
-    if level not in (1, 2):
-        raise ValueError("Mode3 level must be 1 or 2")
-
     result = ModeResult()
     trace_order = 1
 
@@ -35,10 +29,10 @@ def mode3_answer(question: str, level: int = 1) -> ModeResult:
     # 1️⃣ DISCOVERY
     # -----------------------------
     try:
-        discovery_prompt = build_mode3_discovery_prompt(question=question)
+        discovery_prompt = build_discovery_prompt(question=question)
 
         llm_start = time.perf_counter()
-        llm_result = call_llm_raw(prompt=discovery_prompt, question=question)
+        llm_result = call_llm_raw(prompt=discovery_prompt)
         llm_end = time.perf_counter()
 
         prompt_tokens = llm_result.get("prompt_tokens", 0) or 0
@@ -71,11 +65,6 @@ def mode3_answer(question: str, level: int = 1) -> ModeResult:
         )
         trace_order += 1
 
-        if discovery_sql.upper() == "REFUSE":
-            result.refused = True
-            result.final_output = discovery_sql
-            return _finalize_with_expression(result)
-
         if discovery_sql.upper() == "SKIP":
             discovery_block = "Discovery skipped."
         else:
@@ -100,8 +89,8 @@ def mode3_answer(question: str, level: int = 1) -> ModeResult:
     # 2️⃣ FINAL SQL
     # -----------------------------
     try:
-        final_prompt = build_mode3_final_prompt(
-            level=level,
+        final_prompt = build_sql_after_discovery_prompt(
+            sql_prompt=SQL_PROMPT_FINALITY,
             discovery_context=discovery_block,
             question=question,
         )
@@ -109,7 +98,6 @@ def mode3_answer(question: str, level: int = 1) -> ModeResult:
         llm_start = time.perf_counter()
         llm_result = call_llm_raw(
             prompt=final_prompt,
-            question=question,
             max_tokens=LONG_TOKEN_LIMIT,
         )
         llm_end = time.perf_counter()
@@ -145,10 +133,6 @@ def mode3_answer(question: str, level: int = 1) -> ModeResult:
         trace_order += 1
 
         result.final_output = final_output
-
-        if final_output.upper() == "REFUSE":
-            result.refused = True
-            return _finalize_with_expression(result)
 
         if not is_select_sql(final_output):
             result.final_error = "Non-SELECT SQL generated"

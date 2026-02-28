@@ -13,11 +13,6 @@ System Scope:
 - Lab measurements must be restricted to values recorded during ICU stay
   (i.e., charttime between icustays.intime and icustays.outtime).
 
-Refusal Policy:
-- If a question cannot be answered using the provided tables
-  and ICU lab scope, output exactly: REFUSE
-- Output only REFUSE (no explanation)
-
 Tables, fields, and meanings:
 
 Table: `physionet-data.mimiciv_3_1_icu.icustays`
@@ -68,36 +63,15 @@ BigQuery SQL Rules:
 - For median calculations in grouped queries, prefer:
   APPROX_QUANTILES(valuenum, 100)[OFFSET(50)]
   instead of window-based PERCENTILE_CONT.
+
+Additional Rules:
+- Resolve lab tests by joining `d_labitems` on itemid.
+  Do NOT guess itemid values.
+  Match lab names using LOWER(d_labitems.label).
+
+- For numeric calculations, use `labevents.valuenum`
+  and exclude NULL values (`valuenum IS NOT NULL`).
 """.strip()
-
-
-# -------------------------------------------------
-# Shared output requirements
-# -------------------------------------------------
-
-OUTPUT_SQL_OR_REFUSE = """
-Output format:
-- Return either:
-  (A) raw SQL only, OR
-  (B) the exact token: REFUSE
-- Do NOT include markdown
-- Do NOT include ```sql fences
-- Do NOT include explanations or comments
-""".strip()
-
-OUTPUT_DISCOVERY = """
-Output format:
-- Return either:
-  (A) raw SQL only (a single SELECT query), OR
-  (B) the exact token: SKIP
-- Do NOT include markdown
-- Do NOT include ```sql fences
-- Do NOT include explanations or comments
-""".strip()
-
-# -------------------------------------------------
-# Goal (shared for LV1 and LV2)
-# -------------------------------------------------
 
 GOAL_SQL_ONLY = """
 Task:
@@ -106,14 +80,12 @@ Use fully-qualified table and field names.
 Return only SQL.
 """.strip()
 
-GOAL_SQL_OR_REFUSE = """
-Task:
-- If the question is answerable within ICU lab scope,
-  write a SQL query to answer it.
-- Otherwise, output exactly: REFUSE
-
-Use fully-qualified table and field names.
-Return SQL or REFUSE only.
+OUTPUT_SQL_ONLY= """
+Output format:
+- Return raw SQL only
+- Do NOT include markdown
+- Do NOT include ```sql fences
+- Do NOT include explanations or comments
 """.strip()
 
 SEMANTIC_FINALITY = """
@@ -128,60 +100,87 @@ Semantic finality requirement:
 - Do not assume any downstream computation or interpretation layer exists.
 """.strip()
 
-# -------------------------------------------------
-# Level-specific rule blocks (additive by design)
-# -------------------------------------------------
+# Discovery layer
 
-LV1_RULES = ""  # LV1 is base only
-
-LV2_RULES = """
-Additional rules (LV2 - ICU Lab Domain Constraints):
-
-- Treat all questions as ICU-aligned lab analytics.
-
-- Always JOIN `labevents` to `icustays` using:
-  icustays.subject_id = labevents.subject_id
-  AND icustays.hadm_id = labevents.hadm_id
-
-- Always restrict lab measurements to the ICU stay window:
-  labevents.charttime BETWEEN icustays.intime AND icustays.outtime
-
-- Resolve lab tests by joining `d_labitems` on itemid.
-  Do NOT guess itemid values.
-  Match lab names using LOWER(d_labitems.label).
-
-- For numeric calculations, use `labevents.valuenum`
-  and exclude NULL values (`valuenum IS NOT NULL`).
+OUTPUT_DISCOVERY = """
+Output format:
+- Return either:
+  (A) raw SQL only (a single SELECT query), OR
+  (B) the exact token: SKIP
+- Do NOT include markdown
+- Do NOT include ```sql fences
+- Do NOT include explanations or comments
 """.strip()
 
+DISCOVERY_PROMPT = f"""
+{EXPLANATION}
+
+You are performing metadata discovery over MIMIC-IV.
+
+Your task is to generate exactly ONE SELECT SQL query
+to retrieve minimal relevant metadata needed to answer
+the user's question.
+
+Rules:
+- Use only the provided tables.
+- Use fully qualified table names with backticks.
+- Include LIMIT 50.
+- Return raw SQL only.
+- Do NOT include markdown.
+- Do NOT include explanations.
+- If discovery is not required, output exactly: SKIP
+
+{OUTPUT_DISCOVERY}
+""".strip()
 
 # -------------------------------------------------
 # Prompt builder (reusable)
 # -------------------------------------------------
 
-def build_prompt(*rule_blocks: str, goal: str, output: str) -> str:
+def build_prompt(*rule_blocks: str) -> str:
     rules_text = "\n\n".join([b.strip() for b in rule_blocks if b and b.strip()])
     parts = [EXPLANATION]
     if rules_text:
         parts.append(rules_text)
-    parts.append(goal)
-    parts.append(output)
+    parts.append(GOAL_SQL_ONLY)
+    parts.append(OUTPUT_SQL_ONLY)
     return "\n\n".join(parts).strip()
 
+def build_discovery_prompt(question: str) -> str:
+    return f"""
+    {DISCOVERY_PROMPT}
+
+    ===== USER QUESTION =====
+    {question}
+    ===== END USER QUESTION =====
+    """.strip()
 
 # -------------------------------------------------
 # Public prompts (fair + additive)
 # -------------------------------------------------
 
-PROMPT_LV_1 = build_prompt(
-    LV1_RULES,
-    goal=GOAL_SQL_OR_REFUSE,
-    output=OUTPUT_SQL_OR_REFUSE,
+SQL_PROMPT = build_prompt()
+
+SQL_PROMPT_FINALITY = build_prompt(
+    SEMANTIC_FINALITY,
 )
 
-PROMPT_LV_2 = build_prompt(
-    LV1_RULES,
-    LV2_RULES,
-    goal=GOAL_SQL_OR_REFUSE,
-    output=OUTPUT_SQL_OR_REFUSE,
-)
+def build_sql_after_discovery_prompt(sql_prompt, discovery_context: str, question: str) -> str:
+    return f"""
+    {sql_prompt}
+
+    Use the discovery results below as context data to answer the question.
+    Do NOT invent itemids or labels beyond the discovery results.
+
+    ===== DISCOVERY RESULTS =====
+
+    {discovery_context}
+
+    ===== END DISCOVERY RESULTS =====
+
+    ===== USER QUESTION =====
+
+    {question}
+
+    ===== END USER QUESTION =====
+    """.strip()

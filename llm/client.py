@@ -38,13 +38,11 @@ def extract_intent(question: str) -> Mode2Intent:
 # Raw Call (Adjustable)
 # ---------------------------
 
-def call_llm_raw(prompt: str, question: str, max_tokens: int = DEFAULT_TOKEN_LIMIT):
+def call_llm_raw(prompt: str, max_tokens: int = DEFAULT_TOKEN_LIMIT):
     llm = get_llm(max_tokens)
 
-    full_prompt = prompt + "\n\nUser question:\n" + question
-
     start = time.perf_counter()
-    response = llm.invoke(full_prompt)
+    response = llm.invoke(prompt)
     end = time.perf_counter()
 
     latency_ms = (end - start) * 1000
