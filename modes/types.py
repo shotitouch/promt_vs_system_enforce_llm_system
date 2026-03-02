@@ -1,20 +1,13 @@
-from typing import List, Optional, Dict, Any, Literal
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
-
-class LLMStageMetric(BaseModel):
-    stage: str  # e.g. "discovery", "final", "expression", etc.
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-    latency_ms: int = 0
-
-    class Config:
-        extra = "forbid"
-
-class SQLTrace(BaseModel):
-    stage: str
-    sql: str
-    order: int
+from experiment.logging_schema import (
+    AggregationTrace,
+    ExpressionTrace,
+    LLMStageMetric,
+    PolicyTrace,
+    SQLTrace,
+    ValidationTrace,
+)
 
 
 class ModeResult(BaseModel):
@@ -22,9 +15,11 @@ class ModeResult(BaseModel):
     # Execution state
     # ---------------------------
     refused: bool = False
+    refusal_source: Optional[str] = None
     execution_success: bool = False
     final_output: Optional[str] = None
     final_error: Optional[str] = None
+    failure_stage: Optional[str] = None
 
     # ---------------------------
     # Result shape
@@ -50,6 +45,7 @@ class ModeResult(BaseModel):
     # ---------------------------
     db_call_count: int = 0
     db_total_latency_ms: float = 0.0
+    db_error: Optional[str] = None
 
     # ---------------------------
     # Expression layer
@@ -62,6 +58,10 @@ class ModeResult(BaseModel):
     # Traces
     # ---------------------------
     sql_trace: List[SQLTrace] = Field(default_factory=list)
+    validation_trace: Optional[ValidationTrace] = None
+    policy_trace: Optional[PolicyTrace] = None
+    aggregation_trace: Optional[AggregationTrace] = None
+    expression_trace: Optional[ExpressionTrace] = None
 
     class Config:
         extra = "forbid"

@@ -6,8 +6,13 @@ from llm.common import build_discovery_prompt, build_sql_after_discovery_prompt,
 from db.bigquery import run_raw_query
 from utils.utils import clean_sql, is_select_sql
 from utils.expression import express_mode_result
-from modes.types import ModeResult, SQLTrace
-from experiment.logging_schema import LLMStageMetric
+from modes.types import ModeResult
+from experiment.logging_schema import (
+    ExpressionTrace,
+    LLMStageMetric,
+    SQLTrace,
+    ValidationTrace,
+)
 from config import LONG_TOKEN_LIMIT
 
 
@@ -22,7 +27,12 @@ def mode3_answer(question: str) -> ModeResult:
     Pure architecture output (ModeResult).
     """
 
-    result = ModeResult()
+    result = ModeResult(
+        refused=False,
+        refusal_source=None,
+        policy_trace=None,
+        aggregation_trace=None,
+    )
     trace_order = 1
 
     # -----------------------------
@@ -64,26 +74,38 @@ def mode3_answer(question: str) -> ModeResult:
             SQLTrace(stage="discovery", sql=discovery_sql, order=trace_order)
         )
         trace_order += 1
+    except Exception as e:
+        result.final_error = str(e)
+        result.failure_stage = "discovery"
+        return _finalize_with_expression(result)
 
-        if discovery_sql.upper() == "SKIP":
-            discovery_block = "Discovery skipped."
-        else:
-            if not is_select_sql(discovery_sql):
-                result.final_error = "Invalid discovery SQL"
-                return _finalize_with_expression(result)
+    if discovery_sql.upper() == "SKIP":
+        discovery_block = "Discovery skipped."
+    else:
+        if not is_select_sql(discovery_sql):
+            result.final_error = "Invalid discovery SQL"
+            result.failure_stage = "validation"
+            result.validation_trace = ValidationTrace(
+                passed=False,
+                checked_rules=["sql_valid"],
+                failures=["invalid_discovery_sql"],
+                sql_valid=False,
+            )
+            return _finalize_with_expression(result)
 
+        try:
             db_start = time.perf_counter()
             discovery_rows = run_raw_query(discovery_sql)
             db_end = time.perf_counter()
+        except Exception as e:
+            result.final_error = str(e)
+            result.failure_stage = "execution"
+            result.db_error = str(e)
+            return _finalize_with_expression(result)
 
-            result.db_call_count += 1
-            result.db_total_latency_ms += int((db_end - db_start) * 1000)
-
-            discovery_block = format_discovery_rows(discovery_rows)
-
-    except Exception as e:
-        result.final_error = str(e)
-        return _finalize_with_expression(result)
+        result.db_call_count += 1
+        result.db_total_latency_ms += int((db_end - db_start) * 1000)
+        discovery_block = format_discovery_rows(discovery_rows)
 
     # -----------------------------
     # 2️⃣ FINAL SQL
@@ -133,27 +155,41 @@ def mode3_answer(question: str) -> ModeResult:
         trace_order += 1
 
         result.final_output = final_output
+    except Exception as e:
+        result.final_error = str(e)
+        result.failure_stage = "final"
+        return _finalize_with_expression(result)
 
-        if not is_select_sql(final_output):
-            result.final_error = "Non-SELECT SQL generated"
-            return _finalize_with_expression(result)
+    if not is_select_sql(final_output):
+        result.final_error = "Non-SELECT SQL generated"
+        result.failure_stage = "validation"
+        result.validation_trace = ValidationTrace(
+            passed=False,
+            checked_rules=["sql_valid"],
+            failures=["non_select_final_sql"],
+            sql_valid=False,
+        )
+        return _finalize_with_expression(result)
 
+    try:
         db_start = time.perf_counter()
         rows = run_raw_query(final_output)
         db_end = time.perf_counter()
-
-        result.db_call_count += 1
-        result.db_total_latency_ms += int((db_end - db_start) * 1000)
-
-        result.final_row_count = len(rows)
-        result.execution_success = True
-
-        preview = rows[:5] if rows else []
-        result.final_rows_preview = preview
-        result.final_columns = list(preview[0].keys()) if preview else []
-
     except Exception as e:
         result.final_error = str(e)
+        result.failure_stage = "execution"
+        result.db_error = str(e)
+        return _finalize_with_expression(result)
+
+    result.db_call_count += 1
+    result.db_total_latency_ms += int((db_end - db_start) * 1000)
+
+    result.final_row_count = len(rows)
+    result.execution_success = True
+
+    preview = rows[:5] if rows else []
+    result.final_rows_preview = preview
+    result.final_columns = list(preview[0].keys()) if preview else []
 
     return _finalize_with_expression(result)
 
@@ -171,6 +207,10 @@ def _finalize_with_expression(result: ModeResult) -> ModeResult:
     result.answer_text = expr["answer_text"]
     result.answer_format = expr["answer_format"]
     result.expression_latency_ms = expr["expression_latency_ms"]
+    result.expression_trace = ExpressionTrace(
+        answer_format=result.answer_format,
+        rendered_from_row_count=result.final_row_count,
+    )
 
     return result
 

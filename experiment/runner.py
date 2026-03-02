@@ -1,8 +1,8 @@
 import time
 import hashlib
-from typing import Callable, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from experiment.logging_schema import ExperimentRecord
+from experiment.logging_schema import ExperimentRecord, ValidationTrace
 from utils.metrics import derive_structural_fields
 from utils.logger import log_run
 
@@ -10,23 +10,37 @@ from utils.logger import log_run
 def run_experiment(
     mode_name: str,
     mode_fn: Callable,
-    questions: List[Tuple[str, str, bool]],
-    levels: List[int],
+    questions: List[Any],
+    benchmark_category: Optional[str],
+    authority: Dict[str, str],
     output_file: str,
-    num_trials: int = 1
+    num_trials: int = 1,
+    levels: Optional[List[int]] = None,
 ):
     print(
         f"Start run experiment: {mode_name} | "
         f"output: {output_file} | num_trials: {num_trials}"
     )
 
-    for qid, question, should_refuse in questions:
+    for question_item in questions:
+        if isinstance(question_item, dict):
+            qid = question_item["question_id"]
+            question = question_item["question"]
+            should_refuse = question_item["should_refuse"]
+            question_benchmark_category = question_item["benchmark_category"]
+        else:
+            qid, question, should_refuse = question_item
+            question_benchmark_category = benchmark_category
+
+        level_values = levels or [None]
 
         for trial in range(1, num_trials + 1):
 
-            for level in levels:
+            for level in level_values:
 
-                full_mode_name = f"{mode_name}-LV{level}"
+                full_mode_name = (
+                    f"{mode_name}-LV{level}" if level is not None else mode_name
+                )
                 total_start = time.perf_counter()
 
                 record = ExperimentRecord(
@@ -34,23 +48,37 @@ def run_experiment(
                     question_id=qid,
                     trial=trial,
                     question=question,
+                    benchmark_category=question_benchmark_category,
                     should_refuse=should_refuse,
+                    authority=authority,
                 )
 
                 # ----------------------------
                 # 1️⃣ Run architecture
                 # ----------------------------
-                mode_result = mode_fn(question=question, level=level)
+                if level is None:
+                    mode_result = mode_fn(question=question)
+                else:
+                    mode_result = mode_fn(question=question, level=level)
 
                 # SQL trace
                 record.sql_trace = mode_result.sql_trace
+                record.validation_trace = mode_result.validation_trace
+                record.policy_trace = mode_result.policy_trace
+                record.aggregation_trace = mode_result.aggregation_trace
+                record.expression_trace = mode_result.expression_trace
 
                 # Execution state
                 record.refused = mode_result.refused
+                record.refusal_source = mode_result.refusal_source
                 record.final_output = mode_result.final_output
                 record.execution_success = mode_result.execution_success
                 record.final_row_count = mode_result.final_row_count
                 record.final_error = mode_result.final_error
+                record.failure_stage = mode_result.failure_stage
+                record.db_error = mode_result.db_error
+                record.final_rows_preview = mode_result.final_rows_preview
+                record.final_columns = mode_result.final_columns
 
                 # ----------------------------
                 # Cost metrics (LLM totals)
@@ -72,6 +100,12 @@ def run_experiment(
                 record.answer_text = mode_result.answer_text
                 record.answer_format = mode_result.answer_format
                 record.expression_latency_ms = mode_result.expression_latency_ms
+                record.output_hash = (
+                    hashlib.md5(record.answer_text.encode()).hexdigest()
+                    if record.answer_text
+                    else None
+                )
+                record.policy_compliant = (record.refused == should_refuse)
 
                 # ----------------------------
                 # 2️⃣ Structural evaluation
@@ -81,12 +115,34 @@ def run_experiment(
                     and record.final_output
                 ):
                     structural = derive_structural_fields(record.final_output)
-                    for k, v in structural.items():
-                        setattr(record, k, v)
+                    record.final_sql_hash = structural["final_sql_hash"]
 
-                    record.final_sql_hash = hashlib.md5(
-                        record.final_output.encode()
-                    ).hexdigest()
+                    if record.validation_trace is None:
+                        failures = []
+                        if structural["sql_valid"] is False:
+                            failures.append("invalid_sql")
+                        if structural["uses_only_allowed_tables"] is False:
+                            failures.append("unauthorized_table")
+                        if structural["has_icustays_join"] is False:
+                            failures.append("missing_required_join")
+                        if structural["has_icu_window"] is False:
+                            failures.append("missing_required_window_constraint")
+
+                        record.validation_trace = ValidationTrace(
+                            passed=(len(failures) == 0),
+                            checked_rules=[
+                                "sql_valid",
+                                "uses_only_allowed_tables",
+                                "has_required_joins",
+                                "has_required_window_constraints",
+                            ],
+                            failures=failures,
+                            sql_valid=structural["sql_valid"],
+                            uses_only_allowed_tables=structural["uses_only_allowed_tables"],
+                            unknown_table_refs=structural["unknown_table_refs"] or [],
+                            has_required_joins=structural["has_icustays_join"],
+                            has_required_window_constraints=structural["has_icu_window"],
+                        )
 
                 # ----------------------------
                 # 3️⃣ End-to-end timing
