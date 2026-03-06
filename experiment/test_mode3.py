@@ -3,12 +3,10 @@ from experiment.benchmark_questions import BENCHMARK_QUESTIONS
 from experiment.runner import run_experiment
 
 MODE3_AUTHORITY = {
-    "intent": "none",
     "sql_gen": "llm",
     "validation": "deterministic",
-    "policy": "none",
+    "policy": "llm",
     "aggregation": "none",
-    "expression": "deterministic",
 }
 
 

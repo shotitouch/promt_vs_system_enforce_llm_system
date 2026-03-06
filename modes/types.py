@@ -2,7 +2,9 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from experiment.logging_schema import (
     AggregationTrace,
+    DiscoveryExecutionTrace,
     ExpressionTrace,
+    IntentTrace,
     LLMStageMetric,
     PolicyTrace,
     SQLTrace,
@@ -58,8 +60,12 @@ class ModeResult(BaseModel):
     # Traces
     # ---------------------------
     sql_trace: List[SQLTrace] = Field(default_factory=list)
+    intent_trace: Optional[IntentTrace] = None
     validation_trace: Optional[ValidationTrace] = None
+    discovery_validation_trace: Optional[ValidationTrace] = None
+    final_validation_trace: Optional[ValidationTrace] = None
     policy_trace: Optional[PolicyTrace] = None
+    discovery_execution_trace: Optional[DiscoveryExecutionTrace] = None
     aggregation_trace: Optional[AggregationTrace] = None
     expression_trace: Optional[ExpressionTrace] = None
 

@@ -28,9 +28,13 @@ def run_experiment(
             question = question_item["question"]
             should_refuse = question_item["should_refuse"]
             question_benchmark_category = question_item["benchmark_category"]
+            question_primary_module = question_item.get("primary_module")
+            attribution_confidence = question_item.get("attribution_confidence")
         else:
             qid, question, should_refuse = question_item
             question_benchmark_category = benchmark_category
+            question_primary_module = None
+            attribution_confidence = None
 
         level_values = levels or [None]
 
@@ -52,6 +56,9 @@ def run_experiment(
                     should_refuse=should_refuse,
                     authority=authority,
                 )
+                record.primary_module = question_primary_module
+                if attribution_confidence:
+                    record.authority_notes = f"attribution_confidence={attribution_confidence}"
 
                 # ----------------------------
                 # 1️⃣ Run architecture
@@ -63,8 +70,12 @@ def run_experiment(
 
                 # SQL trace
                 record.sql_trace = mode_result.sql_trace
+                record.intent_trace = mode_result.intent_trace
                 record.validation_trace = mode_result.validation_trace
+                record.discovery_validation_trace = mode_result.discovery_validation_trace
+                record.final_validation_trace = mode_result.final_validation_trace
                 record.policy_trace = mode_result.policy_trace
+                record.discovery_execution_trace = mode_result.discovery_execution_trace
                 record.aggregation_trace = mode_result.aggregation_trace
                 record.expression_trace = mode_result.expression_trace
 

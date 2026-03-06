@@ -4,23 +4,30 @@
 # virtual environments
 venv/
 .venv/
+.venv-pin/
 
 # Python cache
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Environment variables
 .env
+.env.*
 
 # Vector DB persistence
 vectorstore/
 chroma/
-vectorstore/
-chroma/
+
+# Experiment/runtime outputs
+logs/
+*.jsonl
+mlflow.db
 
 # Temporary files
 *.tmp
 *.swp
+*.log
 
 
 ###################################

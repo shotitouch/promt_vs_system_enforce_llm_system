@@ -3,26 +3,27 @@
 # torch==2.9.1+cpu
 # sentence-transformers==2.7.0
 
-langchain
-langchain-openai
+langchain==1.2.10
+langchain-core==1.2.13
+langchain-openai==1.1.9
 # langchain-text-splitters
 # langgraph
-pydantic
+pydantic==2.12.5
 pandas
 
 # chromadb
 python-dotenv
 # pypdf
-fastapi
-uvicorn
+# fastapi
+# uvicorn
 
-python-multipart
+# python-multipart
 
 # unstructured[pdf]
 
-pytest
-pytest-asyncio
-httpx
+# pytest
+# pytest-asyncio
+# httpx
 
 google-cloud-bigquery
 

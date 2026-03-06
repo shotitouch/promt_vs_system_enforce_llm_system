@@ -4,8 +4,6 @@ from dotenv import load_dotenv
 load_dotenv()
 from config import DEFAULT_TOKEN_LIMIT, MODEL_NAME
 from langchain_openai import ChatOpenAI
-from llm.schemas import Mode2Intent
-from llm.prompt_mode2 import MODE2_PROMPT
 import time
 
 # ---------------------------
@@ -17,20 +15,6 @@ def get_llm(max_tokens: int = DEFAULT_TOKEN_LIMIT):
         model=MODEL_NAME,
         temperature=0,
         max_tokens=max_tokens,
-    )
-
-
-# Intent model (fixed small cap)
-intent_llm = get_llm().with_structured_output(Mode2Intent)
-
-
-# ---------------------------
-# Intent Extraction
-# ---------------------------
-
-def extract_intent(question: str) -> Mode2Intent:
-    return intent_llm.invoke(
-        MODE2_PROMPT + "\n\nUser question:\n" + question
     )
 
 

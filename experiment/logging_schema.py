@@ -110,15 +110,32 @@ class ValidationTrace(BaseModel):
         extra = "forbid"
 
 
+class IntentTrace(BaseModel):
+    raw_text: str = ""
+    parsed: Dict[str, Any] = Field(default_factory=dict)
+
+    class Config:
+        extra = "forbid"
+
+
 class PolicyTrace(BaseModel):
     decision: Optional[Literal["allow", "refuse", "none"]] = None
     reason: Optional[str] = None
+    raw_text: Optional[str] = None
 
     scope_category: Optional[
         Literal["in_scope", "out_of_scope", "unknown"]
     ] = None
 
     violations: List[str] = Field(default_factory=list)
+
+    class Config:
+        extra = "forbid"
+
+
+class DiscoveryExecutionTrace(BaseModel):
+    row_count: int = 0
+    columns: List[str] = Field(default_factory=list)
 
     class Config:
         extra = "forbid"
@@ -183,8 +200,12 @@ class ExperimentRecord(BaseModel):
 
     sql_trace: List[SQLTrace] = Field(default_factory=list)
 
+    intent_trace: Optional[IntentTrace] = None
     validation_trace: Optional[ValidationTrace] = None
+    discovery_validation_trace: Optional[ValidationTrace] = None
+    final_validation_trace: Optional[ValidationTrace] = None
     policy_trace: Optional[PolicyTrace] = None
+    discovery_execution_trace: Optional[DiscoveryExecutionTrace] = None
     aggregation_trace: Optional[AggregationTrace] = None
     expression_trace: Optional[ExpressionTrace] = None
 

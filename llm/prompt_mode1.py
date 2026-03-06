@@ -1,9 +1,0 @@
-# llm/prompt_mode1.py
-
-from common import PROMPT_LV_1, PROMPT_LV_2, PROMPT_LV_3
-
-MODE1_A_PROMPT = PROMPT_LV_1
-
-MODE1_B_PROMPT = PROMPT_LV_2
-
-MODE1_C_PROMPT = PROMPT_LV_3
