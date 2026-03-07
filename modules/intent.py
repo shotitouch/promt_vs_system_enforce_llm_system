@@ -1,14 +1,14 @@
 import time
 
 from llm.client import get_llm
-from llm.schemas import Mode3Intent
+from llm.schemas import System1Intent
 from llm.prompts.intent import build_intent_prompt
 
 
-def run_intent_stage(question: str) -> dict:
+def extract_intent(question: str) -> dict:
     prompt = build_intent_prompt(question=question)
     llm = get_llm()
-    structured_llm = llm.with_structured_output(Mode3Intent, include_raw=True)
+    structured_llm = llm.with_structured_output(System1Intent, include_raw=True)
 
     start = time.perf_counter()
     resp = structured_llm.invoke(prompt)
@@ -38,3 +38,8 @@ def run_intent_stage(question: str) -> dict:
         "total_tokens": total_tokens,
         "latency_ms": latency_ms,
     }
+
+
+# Backward compatibility
+def run_intent_stage(question: str) -> dict:
+    return extract_intent(question)

@@ -3,13 +3,13 @@ Output JSON with fields:
 
 {
   "intent_summary": "...",
-  "task_kind": "...",
-  "subject_domain": "...",
-  "measure_name": "...",
-  "temporal_focus": "...",
-  "subject_focus": "...",
-  "qualifiers": ["..."],
-  "intent_notes": "..."
+  "question_type": "...",
+  "data_domain": "...",
+  "lab_name": "...",
+  "time_scope": "...",
+  "result_scope": "...",
+  "details": ["..."],
+  "notes": "..."
 }
 
 Rules:
@@ -38,4 +38,3 @@ def build_intent_prompt(question: str) -> str:
 {question}
 ===== END USER QUESTION =====
 """.strip()
-

@@ -19,7 +19,7 @@ class ModeResult(BaseModel):
     refused: bool = False
     refusal_source: Optional[str] = None
     execution_success: bool = False
-    final_output: Optional[str] = None
+    final_sql: Optional[str] = None
     final_error: Optional[str] = None
     failure_stage: Optional[str] = None
 
@@ -54,19 +54,26 @@ class ModeResult(BaseModel):
     # ---------------------------
     answer_text: Optional[str] = None
     answer_format: Optional[str] = None  # "refuse" | "error" | "scalar" | "table_preview" | "empty"
+    aggregation_latency_ms: int = 0
     expression_latency_ms: int = 0
 
     # ---------------------------
     # Traces
     # ---------------------------
     sql_trace: List[SQLTrace] = Field(default_factory=list)
+    discovery_source: Optional[str] = None
+    discovery_template_id: Optional[str] = None
     intent_trace: Optional[IntentTrace] = None
     validation_trace: Optional[ValidationTrace] = None
     discovery_validation_trace: Optional[ValidationTrace] = None
     final_validation_trace: Optional[ValidationTrace] = None
     policy_trace: Optional[PolicyTrace] = None
+    policy_pre_trace: Optional[PolicyTrace] = None
+    policy_post_trace: Optional[PolicyTrace] = None
     discovery_execution_trace: Optional[DiscoveryExecutionTrace] = None
     aggregation_trace: Optional[AggregationTrace] = None
+    aggregation_plan_raw: Optional[Dict[str, Any]] = None
+    aggregation_output_preview: List[Dict[str, Any]] = Field(default_factory=list)
     expression_trace: Optional[ExpressionTrace] = None
 
     class Config:

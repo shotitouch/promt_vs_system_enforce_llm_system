@@ -2,11 +2,11 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 
 
-class Mode3Intent(BaseModel):
+class System1Intent(BaseModel):
     intent_summary: str = Field(
         description="Short normalized summary of the user request."
     )
-    task_kind: Literal[
+    question_type: Literal[
         "summary",
         "extreme",
         "temporal_change",
@@ -14,34 +14,33 @@ class Mode3Intent(BaseModel):
         "comparison",
         "unknown",
     ] = Field(description="High-level semantic task family.")
-    subject_domain: Literal[
+    data_domain: Literal[
         "lab",
         "medication",
         "diagnosis",
         "procedure",
         "other",
     ] = Field(description="Primary clinical/analytic domain referenced.")
-    measure_name: str = Field(
+    lab_name: str = Field(
         description="Primary target measure/entity."
     )
-    temporal_focus: Literal[
+    time_scope: Literal[
         "icu_period",
         "hospital_period",
         "before_icu",
         "after_icu",
         "unspecified",
     ] = Field(description="Temporal focus implied by the request.")
-    subject_focus: Literal[
+    result_scope: Literal[
         "icu_stay",
         "patient",
         "cohort",
         "unspecified",
     ] = Field(description="Unit/population focus requested.")
-    qualifiers: List[str] = Field(
+    details: List[str] = Field(
         default_factory=list,
-        description="Additional semantic qualifiers.",
+        description="Additional request details.",
     )
-    intent_notes: str = Field(
+    notes: str = Field(
         description="Additional normalized context for downstream modules."
     )
-

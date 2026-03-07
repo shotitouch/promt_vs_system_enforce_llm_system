@@ -3,7 +3,7 @@ from utils.expression import express_mode_result
 from modes.types import ModeResult
 
 
-def finalize_expression(result: ModeResult) -> ModeResult:
+def format_answer(result: ModeResult) -> ModeResult:
     expr = express_mode_result(result)
     result.answer_text = expr["answer_text"]
     result.answer_format = expr["answer_format"]
@@ -14,3 +14,7 @@ def finalize_expression(result: ModeResult) -> ModeResult:
     )
     return result
 
+
+# Backward compatibility
+def finalize_expression(result: ModeResult) -> ModeResult:
+    return format_answer(result)

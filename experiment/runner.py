@@ -1,5 +1,6 @@
 import time
 import hashlib
+import json
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from experiment.logging_schema import ExperimentRecord, ValidationTrace
@@ -48,7 +49,7 @@ def run_experiment(
                 total_start = time.perf_counter()
 
                 record = ExperimentRecord(
-                    mode=full_mode_name,
+                    system_name=full_mode_name,
                     question_id=qid,
                     trial=trial,
                     question=question,
@@ -70,19 +71,25 @@ def run_experiment(
 
                 # SQL trace
                 record.sql_trace = mode_result.sql_trace
+                record.discovery_source = mode_result.discovery_source
+                record.discovery_template_id = mode_result.discovery_template_id
                 record.intent_trace = mode_result.intent_trace
                 record.validation_trace = mode_result.validation_trace
                 record.discovery_validation_trace = mode_result.discovery_validation_trace
                 record.final_validation_trace = mode_result.final_validation_trace
                 record.policy_trace = mode_result.policy_trace
+                record.policy_pre_trace = mode_result.policy_pre_trace
+                record.policy_post_trace = mode_result.policy_post_trace
                 record.discovery_execution_trace = mode_result.discovery_execution_trace
                 record.aggregation_trace = mode_result.aggregation_trace
+                record.aggregation_plan_raw = mode_result.aggregation_plan_raw
+                record.aggregation_output_preview = mode_result.aggregation_output_preview
                 record.expression_trace = mode_result.expression_trace
 
                 # Execution state
                 record.refused = mode_result.refused
                 record.refusal_source = mode_result.refusal_source
-                record.final_output = mode_result.final_output
+                record.final_sql = mode_result.final_sql
                 record.execution_success = mode_result.execution_success
                 record.final_row_count = mode_result.final_row_count
                 record.final_error = mode_result.final_error
@@ -116,6 +123,17 @@ def run_experiment(
                     if record.answer_text
                     else None
                 )
+                record.aggregation_output_hash = (
+                    hashlib.md5(
+                        json.dumps(
+                            record.aggregation_output_preview,
+                            sort_keys=True,
+                            default=str,
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    if record.aggregation_output_preview
+                    else None
+                )
                 record.policy_compliant = (record.refused == should_refuse)
 
                 # ----------------------------
@@ -123,9 +141,9 @@ def run_experiment(
                 # ----------------------------
                 if (
                     not record.refused
-                    and record.final_output
+                    and record.final_sql
                 ):
-                    structural = derive_structural_fields(record.final_output)
+                    structural = derive_structural_fields(record.final_sql)
                     record.final_sql_hash = structural["final_sql_hash"]
 
                     if record.validation_trace is None:

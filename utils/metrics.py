@@ -113,12 +113,12 @@ def sql_valid_select(sql: str) -> bool:
 # Metric-friendly derived fields
 # ---------
 
-def derive_structural_fields(final_output: str) -> Dict[str, Any]:
+def derive_structural_fields(final_sql: str) -> Dict[str, Any]:
     """
     Returns fields you can log for reliability/security metrics.
     If REFUSE, fields are set safely.
     """
-    out = (final_output or "").strip()
+    out = (final_sql or "").strip()
     upper = out.upper()
 
     if upper.strip() == "REFUSE":

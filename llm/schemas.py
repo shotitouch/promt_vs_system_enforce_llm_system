@@ -1,3 +1,3 @@
-from llm.contracts.intent import Mode3Intent
+from llm.contracts.intent import System1Intent
 
-__all__ = ["Mode3Intent"]
+__all__ = ["System1Intent"]

@@ -46,6 +46,7 @@ AuthorityKey = Literal[
 
 
 AggregationOperation = Literal[
+    "identity",
     "median",
     "average",
     "first",
@@ -177,7 +178,7 @@ class ExperimentRecord(BaseModel):
     # Identity
     # --------------------------
 
-    mode: str
+    system_name: str
     question_id: str
     trial: int
 
@@ -199,14 +200,20 @@ class ExperimentRecord(BaseModel):
     # --------------------------
 
     sql_trace: List[SQLTrace] = Field(default_factory=list)
+    discovery_source: Optional[Literal["deterministic", "llm"]] = None
+    discovery_template_id: Optional[str] = None
 
     intent_trace: Optional[IntentTrace] = None
     validation_trace: Optional[ValidationTrace] = None
     discovery_validation_trace: Optional[ValidationTrace] = None
     final_validation_trace: Optional[ValidationTrace] = None
     policy_trace: Optional[PolicyTrace] = None
+    policy_pre_trace: Optional[PolicyTrace] = None
+    policy_post_trace: Optional[PolicyTrace] = None
     discovery_execution_trace: Optional[DiscoveryExecutionTrace] = None
     aggregation_trace: Optional[AggregationTrace] = None
+    aggregation_plan_raw: Optional[Dict[str, Any]] = None
+    aggregation_output_preview: List[Dict[str, Any]] = Field(default_factory=list)
     expression_trace: Optional[ExpressionTrace] = None
 
     # --------------------------
@@ -227,7 +234,7 @@ class ExperimentRecord(BaseModel):
 
     execution_success: bool = False
 
-    final_output: Optional[str] = None
+    final_sql: Optional[str] = None
     final_row_count: int = 0
     final_error: Optional[str] = None
 
@@ -253,6 +260,7 @@ class ExperimentRecord(BaseModel):
 
     final_sql_hash: Optional[str] = None
     output_hash: Optional[str] = None
+    aggregation_output_hash: Optional[str] = None
 
     policy_compliant: Optional[bool] = None
 

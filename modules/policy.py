@@ -22,8 +22,8 @@ def _safe_parse_json(s: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def run_policy_stage(question: str, intent_text: str) -> dict:
-    prompt = build_policy_prompt(question=question, intent_text=intent_text)
+def check_policy(question: str, intent_text: str, sql_text: str | None = None) -> dict:
+    prompt = build_policy_prompt(question=question, intent_text=intent_text, sql_text=sql_text)
     llm_result = call_llm_raw(prompt=prompt)
     raw = (llm_result.get("content", "") or "").strip()
     payload = _safe_parse_json(raw)
@@ -71,3 +71,8 @@ def run_policy_stage(question: str, intent_text: str) -> dict:
         "reason": (reason or "")[:1000] if reason else None,
         "violations": [str(v) for v in violations][:20],
     }
+
+
+# Backward compatibility
+def run_policy_stage(question: str, intent_text: str, sql_text: str | None = None) -> dict:
+    return check_policy(question=question, intent_text=intent_text, sql_text=sql_text)

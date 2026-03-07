@@ -51,6 +51,10 @@ Additional Rules:
 - Resolve lab tests by joining `d_labitems`.
 - Do NOT guess itemid values.
 - Match labels using LOWER(d_labitems.label).
+- A single lab concept can map to multiple valid `itemid` values.
+  Use discovery `lab_label` + `itemid` together: include all `itemid` values
+  whose labels semantically match the requested lab concept, and exclude
+  candidates with non-matching labels.
 """.strip()
 
 GOAL_SQL_ONLY = """
@@ -69,14 +73,14 @@ Output format:
 """.strip()
 
 SEMANTIC_FINALITY = """
-Semantic finality requirement:
+Aggregation handoff requirement:
 
-The SQL must compute the final answer entirely within SQL.
+The SQL should return aggregation-ready intermediate data, not narrative output.
 
-- Do NOT return raw event rows when aggregation is requested.
-- If a single statistic is requested return a single-row result.
-- If per ICU stay return one row per stay_id.
-- All computation must occur in SQL.
+- Prefer returning rows that include `stay_id`, `charttime`, and numeric value columns.
+- Keep enough detail for deterministic aggregation to compute final metrics later.
+- Do not assume one itemid per lab concept; use discovery label/itemid context.
+- Keep ICU time-window constraints and table restrictions enforced in SQL.
 """.strip()
 
 OUTPUT_DISCOVERY = """
@@ -162,4 +166,3 @@ Use the discovery results below as context.
 {question}
 ===== END USER QUESTION =====
 """.strip()
-
