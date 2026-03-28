@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Literal
 
 
-class System1Intent(BaseModel):
+class Intent(BaseModel):
     intent_summary: str = Field(
         description="Short normalized summary of the user request."
     )

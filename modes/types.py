@@ -67,9 +67,9 @@ class ModeResult(BaseModel):
     validation_trace: Optional[ValidationTrace] = None
     discovery_validation_trace: Optional[ValidationTrace] = None
     final_validation_trace: Optional[ValidationTrace] = None
+    post_validation_trace: Optional[ValidationTrace] = None
     policy_trace: Optional[PolicyTrace] = None
     policy_pre_trace: Optional[PolicyTrace] = None
-    policy_post_trace: Optional[PolicyTrace] = None
     discovery_execution_trace: Optional[DiscoveryExecutionTrace] = None
     aggregation_trace: Optional[AggregationTrace] = None
     aggregation_plan_raw: Optional[Dict[str, Any]] = None

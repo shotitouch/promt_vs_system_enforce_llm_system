@@ -5,10 +5,18 @@ MIMIC-IV ICU lab data.
 The focus is authority allocation across critical modules in a hybrid LLM
 system.
 
-## Current System
+## Current Systems
 
-- Active system: `system1`
+- Implemented systems:
+  - `system0`: baseline
+  - `system1`: policy-LLM variant
 - Critical module authority:
+  - `system0`
+    - `sql_gen`: `llm`
+    - `policy`: `deterministic`
+    - `validation`: `deterministic`
+    - `aggregation`: `deterministic` (mandatory)
+- `system1`
   - `sql_gen`: `llm`
   - `policy`: `llm`
   - `validation`: `deterministic`
@@ -19,18 +27,19 @@ Canonical system definitions are documented in
 
 ## Pipeline
 
-`Question -> Intent -> Policy Pre -> Discovery SQL -> Discovery Execute -> Final SQL -> Policy Post -> SQL Validation -> Final SQL Execute -> Aggregation -> Expression`
+`Question -> Intent -> Policy Pre -> Discovery SQL -> Discovery Execute -> Final SQL -> SQL Validation -> Final SQL Execute -> Aggregation -> Post Validation -> Expression`
 
 - Intent: LLM structured output
 - Discovery: deterministic metadata lookup
 - Planner / Final SQL: LLM
-- Policy: LLM (pre and post checkpoints)
-- Validation: deterministic SQL safety checks
+- Policy: request-level gate
+- Validation: deterministic SQL safety checks before execution and deterministic output checks after aggregation
 - Aggregation: deterministic executor
 - Expression: deterministic formatting only
 
 ## Repository Structure
 
+- `modes/system0.py`: System0 orchestration pipeline
 - `modes/system1.py`: System1 orchestration pipeline
 - `modules/`: reusable module implementations
 - `llm/prompts/`: prompt templates
@@ -56,6 +65,10 @@ Reference experiment entrypoint:
 
 `python -m experiment.test_system1`
 
+Baseline experiment entrypoint:
+
+`python -m experiment.test_system0`
+
 ## Logging
 
 Main record schema is in `experiment/logging_schema.py`.
@@ -63,8 +76,8 @@ Main record schema is in `experiment/logging_schema.py`.
 Notable fields include:
 
 - Identity: `system_name`, `question_id`, `trial`, `question`
-- Traces: `intent_trace`, `policy_pre_trace`, `policy_post_trace`,
-  `discovery_*`, `validation_trace`, `aggregation_trace`, `expression_trace`
+- Traces: `intent_trace`, `policy_pre_trace`, `discovery_*`,
+  `validation_trace`, `post_validation_trace`, `aggregation_trace`, `expression_trace`
 - SQL/outputs: `final_sql`, `final_sql_hash`, `output_hash`,
   `aggregation_output_hash`
 - Cost/latency: LLM stage metrics, DB latency, end-to-end latency

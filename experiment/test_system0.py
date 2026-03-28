@@ -1,11 +1,11 @@
-from modes.system1 import system1_answer
 from experiment.benchmark_questions import BENCHMARK_QUESTIONS
 from experiment.runner import run_experiment
+from modes.system0 import system0_answer
 
-SYSTEM1_AUTHORITY = {
+SYSTEM0_AUTHORITY = {
     "sql_gen": "llm",
     "validation": "deterministic",
-    "policy": "llm",
+    "policy": "deterministic",
     "aggregation": "deterministic",
 }
 
@@ -13,11 +13,11 @@ SYSTEM1_AUTHORITY = {
 if __name__ == "__main__":
 
     run_experiment(
-        mode_name="system1",
-        mode_fn=system1_answer,
+        mode_name="system0",
+        mode_fn=system0_answer,
         questions=BENCHMARK_QUESTIONS,
         benchmark_category="in_scope",
-        authority=SYSTEM1_AUTHORITY,
-        output_file="system1_benchmark.jsonl",
+        authority=SYSTEM0_AUTHORITY,
+        output_file="system0_benchmark.jsonl",
         num_trials=5,
     )

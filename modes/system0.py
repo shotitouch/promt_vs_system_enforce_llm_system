@@ -1,6 +1,5 @@
 import time
 
-from modes.common import add_llm_usage
 from experiment.logging_schema import (
     AggregationTrace,
     DiscoveryExecutionTrace,
@@ -9,12 +8,13 @@ from experiment.logging_schema import (
     SQLTrace,
     ValidationTrace,
 )
+from modes.common import add_llm_usage
 from modes.types import ModeResult
 from modules.aggregation import aggregate_rows
 from modules.execution import DBExecutionError, execute_sql
 from modules.expression import format_answer
 from modules.intent import extract_intent
-from modules.policy import check_policy
+from modules.policy import check_policy_deterministic
 from modules.post_validation import validate_post_aggregation
 from modules.sql_generation import (
     build_discovery_sql,
@@ -24,12 +24,12 @@ from modules.sql_generation import (
 from modules.validation import validate_sql
 
 
-def system1_answer(question: str) -> ModeResult:
+def system0_answer(question: str) -> ModeResult:
     """
-    System 1 pipeline:
+    System 0 pipeline:
     Question
       -> Intent (LLM)
-      -> Policy Pre (LLM)
+      -> Policy Pre (deterministic)
       -> Discovery SQL (deterministic metadata lookup)
       -> Execute Discovery SQL
       -> Final SQL (LLM, intermediate-data oriented)
@@ -67,22 +67,17 @@ def system1_answer(question: str) -> ModeResult:
         result.failure_stage = "other"
         return format_answer(result)
 
-    # 1) Policy Pre (LLM): check scope using question + intent
+    # 1) Policy Pre (deterministic): check scope using question + parsed intent
     try:
-        start = time.perf_counter()
-        policy_stage = check_policy(question=question, intent_text=intent_output)
-        latency_ms = int((time.perf_counter() - start) * 1000)
-        add_llm_usage(
-            result,
-            policy_stage["llm_result"],
-            stage="policy",
-            latency_ms=latency_ms,
+        policy_stage = check_policy_deterministic(
+            question=question,
+            intent=intent_parsed,
+            intent_text=intent_output,
         )
-
         result.policy_pre_trace = PolicyTrace(
             decision=policy_stage["decision"],
             reason=policy_stage["reason"],
-            raw_text=policy_stage["llm_result"].get("content", ""),
+            raw_text=policy_stage["raw_text"],
             scope_category=policy_stage["scope_category"],
             violations=policy_stage["violations"],
         )
@@ -93,7 +88,6 @@ def system1_answer(question: str) -> ModeResult:
             result.refusal_source = "policy"
             result.failure_stage = "policy"
             return format_answer(result)
-
     except Exception as e:
         result.final_error = str(e)
         result.failure_stage = "policy"
@@ -202,6 +196,7 @@ def system1_answer(question: str) -> ModeResult:
 
     rows = exec_result["rows"]
     result.db_total_latency_ms += exec_result["latency_ms"]
+
     # 6) Aggregation (deterministic, mandatory)
     try:
         aggregation = aggregate_rows(rows=rows, intent=intent_parsed)

@@ -77,9 +77,9 @@ def run_experiment(
                 record.validation_trace = mode_result.validation_trace
                 record.discovery_validation_trace = mode_result.discovery_validation_trace
                 record.final_validation_trace = mode_result.final_validation_trace
+                record.post_validation_trace = mode_result.post_validation_trace
                 record.policy_trace = mode_result.policy_trace
                 record.policy_pre_trace = mode_result.policy_pre_trace
-                record.policy_post_trace = mode_result.policy_post_trace
                 record.discovery_execution_trace = mode_result.discovery_execution_trace
                 record.aggregation_trace = mode_result.aggregation_trace
                 record.aggregation_plan_raw = mode_result.aggregation_plan_raw

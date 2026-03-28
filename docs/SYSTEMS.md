@@ -10,14 +10,15 @@ Question
 -> Discovery SQL (fixed deterministic metadata lookup)  
 -> Execute Discovery SQL  
 -> SQL Planner / Final SQL  
--> Policy Post  
 -> SQL Validation  
 -> Execute Final SQL  
 -> Aggregation Execution (mandatory)  
+-> Post Validation  
 -> Expression (fixed)
 
 Notes:
-- `Policy` includes both pre and post checkpoints and counts as one module.
+- `Policy` is the request-level gate before planning.
+- `Validation` includes both pre-execution SQL checks and post-aggregation output checks.
 - `Intent`, `Discovery`, `Execution`, and `Expression` are fixed infrastructure.
 
 ## Critical Modules and Allowed Authorities
@@ -43,8 +44,8 @@ Max score with this setup is `3.5`.
 
 | System | Name | sql_planner | policy | validation | aggregation | authority_score | Status |
 |---|---|---|---|---|---|---:|---|
-| S0 | Baseline | llm | deterministic | deterministic | deterministic | 1.0 | Planned baseline target |
-| S1 | Policy-LLM | llm | llm | deterministic | deterministic | 2.0 | Current System 1 behavior |
+| S0 | Baseline | llm | deterministic | deterministic | deterministic | 1.0 | Implemented |
+| S1 | Policy-LLM | llm | llm | deterministic | deterministic | 2.0 | Implemented |
 | S2 | Validation-LLM | llm | deterministic | llm | deterministic | 2.0 | Planned |
 | S3 | Validation-Hybrid | llm | deterministic | hybrid | deterministic | 1.5 | Planned |
 | S4 | Planner-Hybrid | hybrid | deterministic | deterministic | deterministic | 0.5 | Planned |

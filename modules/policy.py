@@ -1,75 +1,126 @@
-import json
+import time
 from typing import Any, Dict, Optional
 
-from llm.client import call_llm_raw
+from llm.client import get_llm
 from llm.prompts.policy import build_policy_prompt
-
-
-def _safe_parse_json(s: str) -> Optional[Dict[str, Any]]:
-    s = (s or "").strip()
-    if not s:
-        return None
-    try:
-        return json.loads(s)
-    except Exception:
-        start = s.find("{")
-        end = s.rfind("}")
-        if start >= 0 and end > start:
-            try:
-                return json.loads(s[start : end + 1])
-            except Exception:
-                return None
-        return None
+from llm.schemas import PolicyDecision
 
 
 def check_policy(question: str, intent_text: str, sql_text: str | None = None) -> dict:
     prompt = build_policy_prompt(question=question, intent_text=intent_text, sql_text=sql_text)
-    llm_result = call_llm_raw(prompt=prompt)
-    raw = (llm_result.get("content", "") or "").strip()
-    payload = _safe_parse_json(raw)
+    llm = get_llm()
+    structured_llm = llm.with_structured_output(PolicyDecision, include_raw=True)
 
-    decision = None
-    scope_category = None
-    reason = None
-    violations = []
+    start = time.perf_counter()
+    resp = structured_llm.invoke(prompt)
+    end = time.perf_counter()
 
-    if isinstance(payload, dict):
-        decision = payload.get("decision")
-        scope_category = payload.get("scope_category")
-        reason = payload.get("reason")
-        violations = payload.get("violations") or []
-    else:
-        low = raw.lower()
-        if "refuse" in low:
-            decision = "refuse"
-        elif "allow" in low:
-            decision = "allow"
-        else:
-            decision = "none"
-        scope_category = "unknown"
-        reason = raw[:500]
-        violations = []
+    latency_ms = (end - start) * 1000
 
-    decision = (decision or "none").strip().lower()
-    if decision not in ("allow", "refuse", "none"):
-        decision = "none"
+    policy_obj = resp["parsed"]
+    raw_msg = resp["raw"]
 
-    if scope_category:
-        scope_category = scope_category.strip().lower()
-        if scope_category not in ("in_scope", "out_of_scope", "unknown"):
+    prompt_tokens = None
+    completion_tokens = None
+    total_tokens = None
+
+    if hasattr(raw_msg, "response_metadata"):
+        usage = raw_msg.response_metadata.get("token_usage")
+        if usage:
+            prompt_tokens = usage.get("prompt_tokens")
+            completion_tokens = usage.get("completion_tokens")
+            total_tokens = usage.get("total_tokens")
+
+    decision = policy_obj.decision
+    scope_category = policy_obj.scope_category
+    reason = policy_obj.reason
+    violations = [str(v) for v in policy_obj.violations][:20]
+    unsafe_request = policy_obj.unsafe_request
+
+    # Policy-module enforcement: unsafe requests must refuse.
+    if unsafe_request is True:
+        decision = "refuse"
+        if scope_category == "in_scope":
             scope_category = "unknown"
-    else:
-        scope_category = "unknown"
+        if "unsafe_request" not in violations:
+            violations.append("unsafe_request")
+        if not reason:
+            reason = "Request attempts to bypass constraints or requires unsupported assumptions."
 
-    if not isinstance(violations, list):
-        violations = [str(violations)]
+    normalized_obj = PolicyDecision(
+        decision=decision,
+        reason=(reason or "")[:1000],
+        scope_category=scope_category,
+        violations=violations,
+        unsafe_request=unsafe_request,
+    )
 
     return {
-        "llm_result": llm_result,
+        "llm_result": {
+            "content": normalized_obj.model_dump_json(),
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": total_tokens,
+            "latency_ms": latency_ms,
+        },
+        "decision": normalized_obj.decision,
+        "scope_category": normalized_obj.scope_category,
+        "reason": normalized_obj.reason,
+        "violations": normalized_obj.violations,
+        "unsafe_request": normalized_obj.unsafe_request,
+    }
+
+def _collect_policy_violations(
+    intent: Optional[Dict[str, Any]] = None,
+) -> tuple[list[str], str]:
+    intent = intent or {}
+    violations: list[str] = []
+
+    data_domain = intent.get("data_domain")
+    if data_domain and data_domain != "lab":
+        violations.append(f"unsupported_domain:{data_domain}")
+
+    time_scope = intent.get("time_scope")
+    if time_scope in {
+        "hospital_period",
+        "before_icu",
+        "after_icu",
+    }:
+        violations.append(f"unsupported_time_scope:{time_scope}")
+
+    scope_category = "out_of_scope" if violations else "in_scope"
+    return violations, scope_category
+
+
+def check_policy_deterministic(
+    question: str,
+    intent: Optional[Dict[str, Any]] = None,
+    intent_text: str | None = None,
+    sql_text: str | None = None,
+) -> dict:
+    violations, scope_category = _collect_policy_violations(
+        intent=intent,
+    )
+
+    decision = "refuse" if violations else "allow"
+    if violations:
+        reason = "; ".join(violations[:5])
+    else:
+        reason = "within_supported_icu_lab_scope"
+
+    raw_text = (
+        f"deterministic_policy decision={decision} "
+        f"scope_category={scope_category} "
+        f"violations={violations}"
+    )
+
+    return {
         "decision": decision,
         "scope_category": scope_category,
-        "reason": (reason or "")[:1000] if reason else None,
-        "violations": [str(v) for v in violations][:20],
+        "reason": reason,
+        "violations": violations[:20],
+        "raw_text": raw_text[:1000],
+        "intent_text": intent_text,
     }
 
 
