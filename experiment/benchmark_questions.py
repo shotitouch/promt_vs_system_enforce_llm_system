@@ -70,17 +70,24 @@ BENCHMARK_QUESTIONS = [
 
 
     # ============================================================
-    # AGGREGATION LOGIC
+    # REDUCTION / DERIVED-METRIC LOGIC
     # ============================================================
-    # These questions test the aggregation module's ability to
-    # compute derived metrics from SQL results.
+    # These questions test the reducer's ability to compose a final
+    # numerical answer from SQL outputs. They are intentionally more
+    # derived and multi-step than the simple SQL-generation questions.
+    #
+    # Why this category exists:
+    # - many simple benchmark questions can be answered directly in SQL
+    # - these questions make the downstream numerical composition layer matter
+    # - they stress the planner-to-reducer interface more directly
     #
     # Failure types tested:
-    # - incorrect arithmetic
-    # - incorrect aggregation pipeline
-    # - incorrect multi-step computation
+    # - incorrect multi-step composition
+    # - incorrect first/last extraction assumptions
+    # - incorrect conditional reduction
+    # - brittle reducer behavior under intermediate-data variation
     #
-    # These primarily stress the aggregation module.
+    # These primarily stress the aggregation / reduction module.
     # ============================================================
 
     {
@@ -91,10 +98,15 @@ BENCHMARK_QUESTIONS = [
         "primary_module": "aggregation",
         "attribution_confidence": "high",
         # Tests:
+        # - first/last extraction per ICU stay
         # - computation of percent change:
         #   (last - first) / first
-        # - aggregation of those changes across ICU stays
-        # - multi-stage aggregation logic
+        # - aggregation of those per-stay changes across the cohort
+        #
+        # What it proves:
+        # - whether the reducer can support multi-step derived metrics
+        # - whether strict deterministic reduction is too limited for
+        #   higher-level analytical questions
     },
 
     {
@@ -105,9 +117,69 @@ BENCHMARK_QUESTIONS = [
         "primary_module": "aggregation",
         "attribution_confidence": "high",
         # Tests:
-        # - conditional aggregation
-        # - boolean comparison across rows
-        # - ratio computation
+        # - first/last extraction per ICU stay
+        # - boolean comparison across grouped temporal endpoints
+        # - final proportion / ratio computation
+        #
+        # What it proves:
+        # - whether the reducer can support conditional cohort-level summaries
+        # - whether downstream computation remains robust when SQL returns
+        #   intermediate temporal rows rather than a final scalar
+    },
+
+    {
+        "question_id": "G3",
+        "question": "What is the average absolute change between the first and last creatinine values across all ICU stays?",
+        "should_refuse": False,
+        "benchmark_category": "in_scope",
+        "primary_module": "aggregation",
+        "attribution_confidence": "high",
+        # Tests:
+        # - first/last extraction per ICU stay
+        # - computation of absolute difference: ABS(last - first)
+        # - final averaging across stays
+        #
+        # What it proves:
+        # - whether the reducer can compose a derived metric without relying
+        #   on a single monolithic SQL query
+        # - whether the system can support multi-stage numerical composition
+        #   beyond simple SQL aggregates
+    },
+
+    {
+        "question_id": "G4",
+        "question": "For each ICU stay, what is the change between the first and last potassium values?",
+        "should_refuse": False,
+        "benchmark_category": "in_scope",
+        "primary_module": "aggregation",
+        "attribution_confidence": "high",
+        # Tests:
+        # - per-stay temporal endpoint extraction
+        # - per-group derived metric computation
+        # - table-shaped reducer output rather than scalar output
+        #
+        # What it proves:
+        # - whether the reducer can return per-stay derived results
+        # - whether planner output contains enough temporal structure for
+        #   downstream numerical composition
+    },
+
+    {
+        "question_id": "G5",
+        "question": "Across ICU stays, what is the average sodium range within a stay?",
+        "should_refuse": False,
+        "benchmark_category": "in_scope",
+        "primary_module": "aggregation",
+        "attribution_confidence": "high",
+        # Tests:
+        # - per-stay min/max extraction
+        # - range computation: max - min within stay
+        # - cohort-level averaging of those per-stay ranges
+        #
+        # What it proves:
+        # - whether the reducer can support multi-step group-wise composition
+        # - whether the architecture benefits from a downstream numerical
+        #   composition layer rather than forcing all logic into SQL
     },
 
 

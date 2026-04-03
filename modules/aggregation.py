@@ -44,7 +44,7 @@ def _choose_operation(intent: Dict[str, Any]) -> tuple[str, Optional[str]]:
 
     # Deterministic boundary: complex derived operations are unsupported in v1.
     if any(k in text for k in ["percent change", "percentage change", "proportion", "ratio", "increase"]):
-        return "unsupported", "unsupported_operation_for_deterministic_aggregation"
+        return "unsupported", "unsupported_derived_operation"
 
     if question_type == "count" or "how many" in text:
         return "count", None
@@ -73,7 +73,7 @@ def _first_last(rows: List[Dict[str, Any]], value_col: str) -> List[Dict[str, An
     if not rows:
         return []
     if "charttime" not in rows[0]:
-        raise ValueError("missing_charttime_column")
+        raise ValueError("missing_required_temporal_column")
 
     buckets: Dict[Any, List[Dict[str, Any]]] = defaultdict(list)
     for r in rows:
@@ -92,6 +92,54 @@ def _first_last(rows: List[Dict[str, Any]], value_col: str) -> List[Dict[str, An
             }
         )
     return out
+
+
+def _try_passthrough(rows: List[Dict[str, Any]], operation: str) -> Optional[List[Dict[str, Any]]]:
+    if not rows:
+        return []
+
+    cols = set(rows[0].keys())
+
+    scalar_map = {
+        "count": {"count"},
+        "average": {"average"},
+        "median": {"median"},
+        "min": {"min"},
+        "max": {"max"},
+    }
+
+    if operation in scalar_map and cols == scalar_map[operation]:
+        return rows
+
+    if operation == "first" and {"stay_id", "first_value"}.issubset(cols):
+        return [
+            {
+                "stay_id": r.get("stay_id"),
+                "first_value": r.get("first_value"),
+            }
+            for r in rows
+        ]
+
+    if operation == "last" and {"stay_id", "last_value"}.issubset(cols):
+        return [
+            {
+                "stay_id": r.get("stay_id"),
+                "last_value": r.get("last_value"),
+            }
+            for r in rows
+        ]
+
+    if operation == "first_last" and {"stay_id", "first_value", "last_value"}.issubset(cols):
+        return [
+            {
+                "stay_id": r.get("stay_id"),
+                "first_value": r.get("first_value"),
+                "last_value": r.get("last_value"),
+            }
+            for r in rows
+        ]
+
+    return None
 
 
 def aggregate_rows(rows: List[Dict[str, Any]], intent: Dict[str, Any]) -> dict:
@@ -121,73 +169,77 @@ def aggregate_rows(rows: List[Dict[str, Any]], intent: Dict[str, Any]) -> dict:
 
     if operation == "identity":
         out_rows = rows
-    elif operation == "count":
-        out_rows = [{"count": len(rows)}]
     else:
-        value_col = _pick_value_column(rows)
-        plan_raw["value_column"] = value_col
-        if value_col is None:
-            return {
-                "passed": False,
-                "error": "missing_numeric_value_column",
-                "operation": None,
-                "plan_raw": plan_raw,
-                "rows": [],
-                "output_preview": [],
-                "columns": [],
-                "output_shape": None,
-                "latency_ms": int((time.perf_counter() - start) * 1000),
-                "input_row_count": len(rows),
-                "input_columns": columns,
-            }
-
-        values = [_to_float(r.get(value_col)) for r in rows]
-        values = [v for v in values if v is not None]
-        if operation in {"average", "median", "min", "max"} and not values:
-            return {
-                "passed": False,
-                "error": "no_numeric_values",
-                "operation": None,
-                "plan_raw": plan_raw,
-                "rows": [],
-                "output_preview": [],
-                "columns": [],
-                "output_shape": None,
-                "latency_ms": int((time.perf_counter() - start) * 1000),
-                "input_row_count": len(rows),
-                "input_columns": columns,
-            }
-
-        if operation == "average":
-            out_rows = [{"average": sum(values) / len(values)}]
-        elif operation == "median":
-            out_rows = [{"median": statistics.median(values)}]
-        elif operation == "min":
-            out_rows = [{"min": min(values)}]
-        elif operation == "max":
-            out_rows = [{"max": max(values)}]
-        elif operation in {"first", "last", "first_last"}:
-            first_last_rows = _first_last(rows, value_col)
-            if operation == "first":
-                out_rows = [{"stay_id": r.get("stay_id"), "first_value": r.get("first_value")} for r in first_last_rows]
-            elif operation == "last":
-                out_rows = [{"stay_id": r.get("stay_id"), "last_value": r.get("last_value")} for r in first_last_rows]
-            else:
-                out_rows = first_last_rows
+        passthrough_rows = _try_passthrough(rows, operation)
+        if passthrough_rows is not None:
+            out_rows = passthrough_rows
+        elif operation == "count":
+            out_rows = [{"count": len(rows)}]
         else:
-            return {
-                "passed": False,
-                "error": "unsupported_operation",
-                "operation": None,
-                "plan_raw": plan_raw,
-                "rows": [],
-                "output_preview": [],
-                "columns": [],
-                "output_shape": None,
-                "latency_ms": int((time.perf_counter() - start) * 1000),
-                "input_row_count": len(rows),
-                "input_columns": columns,
-            }
+            value_col = _pick_value_column(rows)
+            plan_raw["value_column"] = value_col
+            if value_col is None:
+                return {
+                    "passed": False,
+                    "error": "missing_required_value_column",
+                    "operation": None,
+                    "plan_raw": plan_raw,
+                    "rows": [],
+                    "output_preview": [],
+                    "columns": [],
+                    "output_shape": None,
+                    "latency_ms": int((time.perf_counter() - start) * 1000),
+                    "input_row_count": len(rows),
+                    "input_columns": columns,
+                }
+
+            values = [_to_float(r.get(value_col)) for r in rows]
+            values = [v for v in values if v is not None]
+            if operation in {"average", "median", "min", "max"} and not values:
+                return {
+                    "passed": False,
+                    "error": "no_usable_numeric_values",
+                    "operation": None,
+                    "plan_raw": plan_raw,
+                    "rows": [],
+                    "output_preview": [],
+                    "columns": [],
+                    "output_shape": None,
+                    "latency_ms": int((time.perf_counter() - start) * 1000),
+                    "input_row_count": len(rows),
+                    "input_columns": columns,
+                }
+
+            if operation == "average":
+                out_rows = [{"average": sum(values) / len(values)}]
+            elif operation == "median":
+                out_rows = [{"median": statistics.median(values)}]
+            elif operation == "min":
+                out_rows = [{"min": min(values)}]
+            elif operation == "max":
+                out_rows = [{"max": max(values)}]
+            elif operation in {"first", "last", "first_last"}:
+                first_last_rows = _first_last(rows, value_col)
+                if operation == "first":
+                    out_rows = [{"stay_id": r.get("stay_id"), "first_value": r.get("first_value")} for r in first_last_rows]
+                elif operation == "last":
+                    out_rows = [{"stay_id": r.get("stay_id"), "last_value": r.get("last_value")} for r in first_last_rows]
+                else:
+                    out_rows = first_last_rows
+            else:
+                return {
+                    "passed": False,
+                    "error": "unsupported_reducer_operation",
+                    "operation": None,
+                    "plan_raw": plan_raw,
+                    "rows": [],
+                    "output_preview": [],
+                    "columns": [],
+                    "output_shape": None,
+                    "latency_ms": int((time.perf_counter() - start) * 1000),
+                    "input_row_count": len(rows),
+                    "input_columns": columns,
+                }
 
     out_cols = list(out_rows[0].keys()) if out_rows else []
     output_shape = "scalar" if len(out_rows) == 1 and len(out_cols) == 1 else "table"

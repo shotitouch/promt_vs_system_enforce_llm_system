@@ -5,6 +5,11 @@ MIMIC-IV ICU lab data.
 The focus is authority allocation across critical modules in a hybrid LLM
 system.
 
+In documentation, the module meanings are:
+- `policy`: request-level gate
+- `validation`: plan/output validator
+- `aggregation`: numerical composition layer
+
 ## Current Systems
 
 - Implemented systems:
@@ -33,8 +38,8 @@ Canonical system definitions are documented in
 - Discovery: deterministic metadata lookup
 - Planner / Final SQL: LLM
 - Policy: request-level gate
-- Validation: deterministic SQL safety checks before execution and deterministic output checks after aggregation
-- Aggregation: deterministic executor
+- Validation: deterministic plan/output validator with SQL checks before execution and output checks after aggregation
+- Aggregation: deterministic numerical composition over returned rows
 - Expression: deterministic formatting only
 
 ## Repository Structure
