@@ -1,95 +1,256 @@
-# Authority Allocation in Hybrid LLM Systems
+# 🧠 Authority Allocation in Hybrid LLM Systems
 
-This project studies reliability in a modular clinical analytics pipeline over
-MIMIC-IV ICU lab data.  
-The focus is authority allocation across critical modules in a hybrid LLM
-system.
+A research-driven AI system exploring how **authority distribution between LLMs and deterministic components** affects reliability in structured question answering.
 
-In documentation, the module meanings are:
-- `policy`: request-level gate
-- `validation`: plan/output validator
-- `aggregation`: numerical composition layer
+Built on clinical ICU data (MIMIC-IV), this project focuses on **reducing silent failure in LLM systems** through modular architecture, validation, and controlled execution.
 
-## Current Systems
+---
 
-- Implemented systems:
-  - `system0`: baseline
-  - `system1`: policy-LLM variant
-- Critical module authority:
-  - `system0`
-    - `sql_gen`: `llm`
-    - `policy`: `deterministic`
-    - `validation`: `deterministic`
-    - `aggregation`: `deterministic` (mandatory)
-- `system1`
-  - `sql_gen`: `llm`
-  - `policy`: `llm`
-  - `validation`: `deterministic`
-  - `aggregation`: `deterministic` (mandatory)
+## 🚀 Overview
 
-Canonical system definitions are documented in
-[`docs/SYSTEMS.md`](docs/SYSTEMS.md).
+LLM-based systems often fail silently — producing outputs that look correct but are:
 
-## Pipeline
+- logically incorrect  
+- unsupported by data  
+- structurally invalid downstream  
+- inconsistent in refusal behavior  
 
-`Question -> Intent -> Policy Pre -> Discovery SQL -> Discovery Execute -> Final SQL -> SQL Validation -> Final SQL Execute -> Aggregation -> Post Validation -> Expression`
+This project investigates:
 
-- Intent: LLM structured output
-- Discovery: deterministic metadata lookup
-- Planner / Final SQL: LLM
-- Policy: request-level gate
-- Validation: deterministic plan/output validator with SQL checks before execution and output checks after aggregation
-- Aggregation: deterministic numerical composition over returned rows
-- Expression: deterministic formatting only
+> **How should authority be distributed across system components to maximize reliability?**
 
-## Repository Structure
+Instead of treating LLMs as black boxes, the system decomposes reasoning into **explicit, controllable modules**.
 
-- `modes/system0.py`: System0 orchestration pipeline
-- `modes/system1.py`: System1 orchestration pipeline
-- `modules/`: reusable module implementations
-- `llm/prompts/`: prompt templates
-- `llm/contracts/`: structured output contracts
-- `experiment/`: benchmark questions, runner, logging schema, test entrypoint
-- `db/`: BigQuery execution helpers
-- `logs/`: experiment JSONL outputs
+---
 
-## Scope
+## 🏗️ System Architecture
 
-This repository is written as a research architecture project, not as a
-general-purpose package.
+The system is a **modular hybrid pipeline**:
 
-Primary focus:
+Question
+↓
+Intent Extraction (LLM)
+↓
+Request Gate (LLM / Deterministic)
+↓
+Discovery SQL → Execute
+↓
+Final SQL Generation (LLM)
+↓
+Artifact Validation (Deterministic)
+↓
+SQL Execution
+↓
+Reducer (Deterministic / Hybrid)
+↓
+Post Validation
+↓
+Renderer
 
-- controlled authority-allocation experiments
-- module-level traceability
-- reliability and safety behavior under fixed benchmark settings
 
-## Reproducibility Reference
+Each module has **explicit authority assignment**, enabling controlled experimentation.
 
-Reference experiment entrypoint:
+---
 
-`python -m experiment.test_system1`
+## ⚙️ Core Design Principle
 
-Baseline experiment entrypoint:
+> Not “use LLM everywhere” —  
+> but **decide where LLMs should and should NOT have authority**
 
-`python -m experiment.test_system0`
+---
 
-## Logging
+## 🔬 Experimental Setup
 
-Main record schema is in `experiment/logging_schema.py`.
+To isolate system behavior, only selected modules are varied.
 
-Notable fields include:
+### Fixed Components
+- Intent extraction  
+- Discovery pipeline  
+- Database execution  
+- Renderer  
+- Logging + benchmark  
 
-- Identity: `system_name`, `question_id`, `trial`, `question`
-- Traces: `intent_trace`, `policy_pre_trace`, `discovery_*`,
-  `validation_trace`, `post_validation_trace`, `aggregation_trace`, `expression_trace`
-- SQL/outputs: `final_sql`, `final_sql_hash`, `output_hash`,
-  `aggregation_output_hash`
-- Cost/latency: LLM stage metrics, DB latency, end-to-end latency
+### Experimental Components
+- Request Gate  
+- SQL Generation  
+- Validation  
+- Reducer  
 
-## Notes
+---
 
-- Deterministic aggregation currently has bounded capability by design.
-- Some benchmark items can fail with `failure_stage="aggregation"` if operation
-  is outside deterministic support.
-- This is intentional for measuring coverage vs reliability tradeoffs.
+## 🧪 Implemented Systems
+
+### System 0 (S0)
+- Request Gate: Deterministic  
+- SQL Generation: LLM  
+- Validator: Deterministic  
+- Reducer: Deterministic  
+
+### System 1 (S1)
+- Request Gate: **LLM**  
+- SQL Generation: LLM  
+- Validator: Deterministic  
+- Reducer: Deterministic  
+
+---
+
+## 📊 Key Results
+
+| Metric | S0 | S1 |
+|------|----|----|
+| Answerable Success | 34 / 60 | 33 / 60 |
+| Correct Refusal | 20 / 35 | **35 / 35** |
+| False Compliance | 15 | **0** |
+
+### 🔍 Insight
+
+- LLM-based request gating **eliminates unsafe compliance**
+- Minimal impact on answerable queries
+- Major failures shift **downstream (SQL → reducer interface)**
+
+---
+
+## ⚠️ Core Problem Identified
+
+Even when SQL is valid:
+
+> Outputs can still fail during deterministic reduction due to **contract mismatch**
+
+👉 Structural correctness ≠ system correctness  
+
+This highlights the importance of **cross-module compatibility**, not just individual module quality.
+
+---
+
+## 🧠 Discovery-Guided SQL Generation
+
+Instead of direct prompting:
+
+1. Extract measure terms  
+2. Query metadata candidates  
+3. Inject discovery context into SQL generation  
+
+This improves:
+- grounding  
+- schema correctness  
+- reliability under constrained tables  
+
+---
+
+## 🛡️ Reliability & Safety Mechanisms
+
+- Allowed-table enforcement  
+- ICU time-window constraints  
+- Deterministic SQL validation  
+- Explicit refusal for unsupported queries  
+- Controlled execution boundaries  
+- Post-generation validation  
+
+The system is designed to **fail safely**, not just produce answers.
+
+---
+
+## 📈 Benchmark & Evaluation Framework
+
+### Benchmark Design
+- 19 questions × 5 trials = 95 runs per system  
+- Categories:
+  - SQL-heavy queries  
+  - reducer-sensitive queries  
+  - validation-sensitive queries  
+  - out-of-scope requests  
+  - adversarial prompts  
+
+### Metrics
+
+#### Raw Metrics
+- execution success  
+- refusal count  
+- failure stage  
+- token usage  
+- latency  
+
+#### Derived Metrics
+- answerable success rate  
+- correct refusal rate  
+- false compliance rate  
+- validation pass rate  
+- unsafe request detection  
+- determinism (SQL / output / policy)  
+
+---
+
+## 🔍 Observability & Logging
+
+Structured experiment logging includes:
+
+- authority configuration  
+- SQL traces  
+- validation traces  
+- reducer traces  
+- failure stage  
+- token + latency metrics  
+
+This enables analysis of **where and why failures occur**, not just outcomes.
+
+---
+
+## 🚧 Next Step: Hybrid Reducer
+
+Current bottleneck:
+- SQL outputs don’t always match deterministic reducer expectations  
+
+### Planned Solution
+
+Hybrid reducer design:
+
+1. Summarize SQL output structure  
+2. LLM generates reduction plan  
+3. Deterministic execution applies plan  
+
+This keeps:
+- execution safe  
+- reasoning flexible  
+
+---
+
+## 🧰 Tech Stack
+
+- Python  
+- SQL (MIMIC-IV)  
+- OpenAI API  
+- Pydantic (structured outputs)  
+- Custom modular pipeline  
+- JSON-based logging & evaluation system  
+
+---
+
+## 🎯 What This Project Demonstrates
+
+- Hybrid LLM system design  
+- Reliability engineering for AI systems  
+- Structured query generation (text-to-SQL)  
+- Validation and guardrail design  
+- Experimental framework for AI behavior  
+- Observability in multi-stage pipelines  
+
+---
+
+## 📌 Positioning
+
+This project is best described as:
+
+- **AI Systems Engineering**
+- **LLM + Deterministic Hybrid Architecture**
+- **Reliability & Evaluation Framework for GenAI**
+
+Not focused on:
+- pure model training  
+- generic chatbot applications  
+
+---
+
+## 👤 Author
+
+Shotitouch Tuangcharoentip  
+AI / Full-Stack Engineer | LLM Systems | MS ML Stevens Institute of Technology
