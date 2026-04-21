@@ -59,7 +59,17 @@ Additional Rules:
 
 GOAL_SQL_ONLY = """
 Task:
-Write a SQL query to answer the user's question.
+Write one SQL query that either:
+1. directly answers the user's question when the computation is simple and naturally expressible in one SQL query, or
+2. returns structured intermediate data for downstream reduction when the computation is multi-step, derived, temporal, or otherwise better handled by the reducer.
+
+Decision rule:
+1. First decide whether the question can be answered cleanly with one stable SQL layer.
+2. Use direct final-answer SQL only when the result can be computed with a straightforward aggregate, filter, grouping, count, or ranking query without multi-step derived logic.
+3. Use reducer-ready intermediate SQL when the question requires first/last comparisons, temporal ordering, per-stay derived metrics, ratios or percentage changes computed from intermediate values, conditional cohort summaries, or multiple logical computation stages.
+4. When in doubt, prefer reducer-ready intermediate SQL over brittle multi-layer SQL.
+
+The SQL is still part of answering the user's question even when it returns intermediate data for later reduction.
 Use fully-qualified table and field names.
 Return only SQL.
 """.strip()
@@ -75,12 +85,28 @@ Output format:
 SEMANTIC_FINALITY = """
 Aggregation handoff requirement:
 
-The SQL should return aggregation-ready intermediate data, not narrative output.
+When downstream reduction is the cleaner computation boundary, return reducer-ready intermediate data rather than a final derived scalar.
 
-- Prefer returning rows that include `stay_id`, `charttime`, and numeric value columns.
-- Keep enough detail for deterministic aggregation to compute final metrics later.
+- Return rows, not narrative output.
+- Preserve identifiers needed for grouping, especially `stay_id` when relevant.
+- Preserve temporal columns such as `charttime` when first/last or ordering logic may be needed later.
+- Preserve numeric value columns needed for downstream arithmetic.
+- Do not collapse multi-step derived computations into a final scalar when reducer handoff is the cleaner boundary.
 - Do not assume one itemid per lab concept; use discovery label/itemid context.
 - Keep ICU time-window constraints and table restrictions enforced in SQL.
+""".strip()
+
+SQL_STRATEGY_EXAMPLES = """
+Strategy examples:
+
+Example A: direct final-answer SQL
+- Question pattern: "What is the average creatinine value across all ICU stays?"
+- Preferred SQL shape: a single SQL query that directly returns the final aggregate, because the computation is a straightforward aggregate.
+
+Example B: reducer-ready intermediate SQL
+- Question pattern: "What is the average percentage change between the first and last creatinine values across ICU stays?"
+- Preferred SQL shape: rows that preserve the intermediate data needed for later reduction, such as `stay_id`, `charttime`, and `valuenum`, or equivalent per-stay endpoint rows.
+- Do not force the full derived cohort metric into one brittle SQL layer when reducer handoff is cleaner.
 """.strip()
 
 OUTPUT_DISCOVERY = """
@@ -115,16 +141,15 @@ Rules:
 
 def build_prompt(*rule_blocks: str) -> str:
     rules_text = "\n\n".join([b.strip() for b in rule_blocks if b and b.strip()])
-    parts = [EXPLANATION]
+    parts = [EXPLANATION, GOAL_SQL_ONLY]
     if rules_text:
         parts.append(rules_text)
-    parts.append(GOAL_SQL_ONLY)
     parts.append(OUTPUT_SQL_ONLY)
     return "\n\n".join(parts).strip()
 
 
 SQL_PROMPT = build_prompt()
-SQL_PROMPT_FINALITY = build_prompt(SEMANTIC_FINALITY)
+SQL_PROMPT_FINALITY = build_prompt(SEMANTIC_FINALITY, SQL_STRATEGY_EXAMPLES)
 
 
 def build_discovery_prompt(question: str) -> str:

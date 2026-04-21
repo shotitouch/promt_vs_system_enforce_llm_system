@@ -12,6 +12,8 @@ LOG_DIR = Path("logs")
 SYSTEM_FILES = {
     "system0": LOG_DIR / "system0_benchmark.jsonl",
     "system1": LOG_DIR / "system1_benchmark.jsonl",
+    "system2": LOG_DIR / "system2_benchmark.jsonl",
+    "system2-smoke": LOG_DIR / "system2_smoke_benchmark.jsonl",
 }
 OUTPUT_FILE = LOG_DIR / "derived_metrics_summary.json"
 
@@ -192,57 +194,62 @@ def _compare_systems(system_metrics: Dict[str, Dict[str, Any]]) -> Dict[str, Any
     if len(systems) < 2:
         return {}
 
-    left = systems[0]
-    right = systems[1]
+    def _system_delta(left: str, right: str) -> Dict[str, Any]:
+        left_basic = system_metrics[left]["basic_metrics"]
+        right_basic = system_metrics[right]["basic_metrics"]
+        left_derived = system_metrics[left]["derived_metrics"]
+        right_derived = system_metrics[right]["derived_metrics"]
 
-    left_basic = system_metrics[left]["basic_metrics"]
-    right_basic = system_metrics[right]["basic_metrics"]
-    left_derived = system_metrics[left]["derived_metrics"]
-    right_derived = system_metrics[right]["derived_metrics"]
+        return {
+            "systems_compared": [left, right],
+            "basic_differences": {
+                "total_records": left_basic["total_records"] - right_basic["total_records"],
+                "execution_success_count": left_basic["execution_success_count"] - right_basic["execution_success_count"],
+                "refused_count": left_basic["refused_count"] - right_basic["refused_count"],
+                "total_llm_tokens": left_basic["total_llm_tokens"] - right_basic["total_llm_tokens"],
+                "total_latency_ms": left_basic["total_latency_ms"] - right_basic["total_latency_ms"],
+            },
+            "derived_differences": {
+                "answerable_success_rate": (
+                    None
+                    if left_derived["answerable_success_rate"] is None or right_derived["answerable_success_rate"] is None
+                    else round(left_derived["answerable_success_rate"] - right_derived["answerable_success_rate"], 4)
+                ),
+                "correct_refusal_rate": (
+                    None
+                    if left_derived["correct_refusal_rate"] is None or right_derived["correct_refusal_rate"] is None
+                    else round(left_derived["correct_refusal_rate"] - right_derived["correct_refusal_rate"], 4)
+                ),
+                "false_compliance_rate": (
+                    None
+                    if left_derived["false_compliance_rate"] is None or right_derived["false_compliance_rate"] is None
+                    else round(left_derived["false_compliance_rate"] - right_derived["false_compliance_rate"], 4)
+                ),
+                "validation_pass_rate": (
+                    None
+                    if left_derived["validation_pass_rate"] is None or right_derived["validation_pass_rate"] is None
+                    else round(left_derived["validation_pass_rate"] - right_derived["validation_pass_rate"], 4)
+                ),
+                "aggregation_success_rate": (
+                    None
+                    if left_derived["aggregation_success_rate"] is None or right_derived["aggregation_success_rate"] is None
+                    else round(left_derived["aggregation_success_rate"] - right_derived["aggregation_success_rate"], 4)
+                ),
+                "avg_total_latency_ms": round(
+                    left_derived["avg_total_latency_ms"] - right_derived["avg_total_latency_ms"], 2
+                ),
+                "avg_llm_tokens_per_record": round(
+                    left_derived["avg_llm_tokens_per_record"] - right_derived["avg_llm_tokens_per_record"], 2
+                ),
+            },
+        }
 
-    return {
-        "systems_compared": [left, right],
-        "basic_differences": {
-            "total_records": left_basic["total_records"] - right_basic["total_records"],
-            "execution_success_count": left_basic["execution_success_count"] - right_basic["execution_success_count"],
-            "refused_count": left_basic["refused_count"] - right_basic["refused_count"],
-            "total_llm_tokens": left_basic["total_llm_tokens"] - right_basic["total_llm_tokens"],
-            "total_latency_ms": left_basic["total_latency_ms"] - right_basic["total_latency_ms"],
-        },
-        "derived_differences": {
-            "answerable_success_rate": (
-                None
-                if left_derived["answerable_success_rate"] is None or right_derived["answerable_success_rate"] is None
-                else round(left_derived["answerable_success_rate"] - right_derived["answerable_success_rate"], 4)
-            ),
-            "correct_refusal_rate": (
-                None
-                if left_derived["correct_refusal_rate"] is None or right_derived["correct_refusal_rate"] is None
-                else round(left_derived["correct_refusal_rate"] - right_derived["correct_refusal_rate"], 4)
-            ),
-            "false_compliance_rate": (
-                None
-                if left_derived["false_compliance_rate"] is None or right_derived["false_compliance_rate"] is None
-                else round(left_derived["false_compliance_rate"] - right_derived["false_compliance_rate"], 4)
-            ),
-            "validation_pass_rate": (
-                None
-                if left_derived["validation_pass_rate"] is None or right_derived["validation_pass_rate"] is None
-                else round(left_derived["validation_pass_rate"] - right_derived["validation_pass_rate"], 4)
-            ),
-            "aggregation_success_rate": (
-                None
-                if left_derived["aggregation_success_rate"] is None or right_derived["aggregation_success_rate"] is None
-                else round(left_derived["aggregation_success_rate"] - right_derived["aggregation_success_rate"], 4)
-            ),
-            "avg_total_latency_ms": round(
-                left_derived["avg_total_latency_ms"] - right_derived["avg_total_latency_ms"], 2
-            ),
-            "avg_llm_tokens_per_record": round(
-                left_derived["avg_llm_tokens_per_record"] - right_derived["avg_llm_tokens_per_record"], 2
-            ),
-        },
-    }
+    comparisons: Dict[str, Any] = {}
+    for idx, left in enumerate(systems):
+        for right in systems[idx + 1 :]:
+            comparisons[f"{left}_vs_{right}"] = _system_delta(left, right)
+
+    return comparisons
 
 
 def build_summary() -> Dict[str, Any]:

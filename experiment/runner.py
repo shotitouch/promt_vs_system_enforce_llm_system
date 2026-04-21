@@ -82,7 +82,9 @@ def run_experiment(
                 record.policy_pre_trace = mode_result.policy_pre_trace
                 record.discovery_execution_trace = mode_result.discovery_execution_trace
                 record.aggregation_trace = mode_result.aggregation_trace
+                record.aggregation_input_summary = mode_result.aggregation_input_summary
                 record.aggregation_plan_raw = mode_result.aggregation_plan_raw
+                record.aggregation_plan_check = mode_result.aggregation_plan_check
                 record.aggregation_output_preview = mode_result.aggregation_output_preview
                 record.expression_trace = mode_result.expression_trace
 

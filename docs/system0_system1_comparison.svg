@@ -1,0 +1,116 @@
+<svg width="1400" height="920" viewBox="0 0 1400 920" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">System 0 and System 1 architecture comparison</title>
+  <desc id="desc">Side-by-side architecture diagram comparing System 0 and System 1. Only the request gate differs: deterministic in System 0 and LLM in System 1.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f4ee; }
+      .panel { fill: #fffdf8; stroke: #2f2a24; stroke-width: 2; rx: 24; }
+      .title { font: 700 32px Georgia, "Times New Roman", serif; fill: #1f1a15; }
+      .subtitle { font: 500 18px Georgia, "Times New Roman", serif; fill: #4f463c; }
+      .box-text { font: 600 20px Georgia, "Times New Roman", serif; fill: #201b16; text-anchor: middle; dominant-baseline: middle; }
+      .caption { font: 500 18px Georgia, "Times New Roman", serif; fill: #3d352d; }
+      .foot { font: 500 20px Georgia, "Times New Roman", serif; fill: #2e271f; }
+      .fixed { fill: #f4ede0; stroke: #6a5f50; stroke-width: 1.8; rx: 16; }
+      .det { fill: #dbe9e2; stroke: #516e61; stroke-width: 1.8; rx: 16; }
+      .llm { fill: #f2ddd5; stroke: #9b6b5e; stroke-width: 1.8; rx: 16; }
+      .highlight-det { fill: #c6e8d5; stroke: #17392c; stroke-width: 4.4; rx: 16; }
+      .highlight-llm { fill: #f6c8ba; stroke: #6a2f24; stroke-width: 4.4; rx: 16; }
+      .callout { fill: #fff0b8; stroke: #8a6a11; stroke-width: 2.4; rx: 14; }
+      .line { stroke: #473d34; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .accent-line { stroke: #8a6a11; stroke-width: 3; fill: none; marker-end: url(#arrowGold); }
+      .highlight-ring { fill: none; stroke: #e2b640; stroke-width: 4; stroke-dasharray: 10 8; rx: 22; }
+      .legend-text { font: 500 16px Georgia, "Times New Roman", serif; fill: #2e271f; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#473d34"/>
+    </marker>
+    <marker id="arrowGold" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#8a6a11"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="920"/>
+
+  <text class="title" x="700" y="56" text-anchor="middle">First Controlled Comparison: System 0 vs System 1</text>
+  <text class="subtitle" x="700" y="88" text-anchor="middle">Only the request gate changes. All other modules remain fixed.</text>
+
+  <rect class="panel" x="60" y="130" width="590" height="690"/>
+  <rect class="panel" x="750" y="130" width="590" height="690"/>
+
+  <text class="title" x="355" y="178" text-anchor="middle">System 0</text>
+  <text class="subtitle" x="355" y="208" text-anchor="middle">SQL generation = LLM, request gate = deterministic</text>
+
+  <text class="title" x="1045" y="178" text-anchor="middle">System 1</text>
+  <text class="subtitle" x="1045" y="208" text-anchor="middle">SQL generation = LLM, request gate = LLM</text>
+
+  <!-- Left column -->
+  <rect class="fixed" x="155" y="245" width="400" height="58"/>
+  <text class="box-text" x="355" y="274">Question</text>
+  <path class="line" d="M355 303 L355 332"/>
+
+  <rect class="llm" x="155" y="332" width="400" height="58"/>
+  <text class="box-text" x="355" y="361">Intent (LLM)</text>
+  <path class="line" d="M355 390 L355 419"/>
+
+  <rect class="highlight-det" x="155" y="419" width="400" height="58"/>
+  <rect class="highlight-ring" x="143" y="407" width="424" height="82"/>
+  <text class="box-text" x="355" y="448">Request Gate (Deterministic)</text>
+  <path class="line" d="M355 477 L355 506"/>
+
+  <rect class="fixed" x="155" y="506" width="400" height="58"/>
+  <text class="box-text" x="355" y="535">Discovery SQL + Discovery Execute</text>
+  <path class="line" d="M355 564 L355 593"/>
+
+  <rect class="llm" x="155" y="593" width="400" height="58"/>
+  <text class="box-text" x="355" y="622">SQL Generation Module (LLM)</text>
+  <path class="line" d="M355 651 L355 680"/>
+
+  <rect class="det" x="155" y="680" width="400" height="58"/>
+  <text class="box-text" x="355" y="709">Artifact Validation + Reducer + Renderer</text>
+
+  <!-- Right column -->
+  <rect class="fixed" x="845" y="245" width="400" height="58"/>
+  <text class="box-text" x="1045" y="274">Question</text>
+  <path class="line" d="M1045 303 L1045 332"/>
+
+  <rect class="llm" x="845" y="332" width="400" height="58"/>
+  <text class="box-text" x="1045" y="361">Intent (LLM)</text>
+  <path class="line" d="M1045 390 L1045 419"/>
+
+  <rect class="highlight-llm" x="845" y="419" width="400" height="58"/>
+  <rect class="highlight-ring" x="833" y="407" width="424" height="82"/>
+  <text class="box-text" x="1045" y="448">Request Gate (LLM)</text>
+  <path class="line" d="M1045 477 L1045 506"/>
+
+  <rect class="fixed" x="845" y="506" width="400" height="58"/>
+  <text class="box-text" x="1045" y="535">Discovery SQL + Discovery Execute</text>
+  <path class="line" d="M1045 564 L1045 593"/>
+
+  <rect class="llm" x="845" y="593" width="400" height="58"/>
+  <text class="box-text" x="1045" y="622">SQL Generation Module (LLM)</text>
+  <path class="line" d="M1045 651 L1045 680"/>
+
+  <rect class="det" x="845" y="680" width="400" height="58"/>
+  <text class="box-text" x="1045" y="709">Artifact Validation + Reducer + Renderer</text>
+
+  <!-- Highlight callout -->
+  <rect class="callout" x="550" y="392" width="300" height="112"/>
+  <text class="caption" x="700" y="426" text-anchor="middle">Request gate is the only</text>
+  <text class="caption" x="700" y="452" text-anchor="middle">authority change between</text>
+  <text class="caption" x="700" y="478" text-anchor="middle">System 0 and System 1.</text>
+  <path class="accent-line" d="M565 448 L520 448"/>
+  <path class="accent-line" d="M835 448 L880 448"/>
+
+  <!-- Comparison note -->
+  <text class="caption" x="700" y="780" text-anchor="middle">
+    The only authority change between the two systems is the request gate. This makes the comparison interpretable.
+  </text>
+
+  <!-- Legend -->
+  <rect class="fixed" x="360" y="826" width="34" height="24"/>
+  <text class="legend-text" x="406" y="844">Fixed infrastructure</text>
+  <rect class="llm" x="585" y="826" width="34" height="24"/>
+  <text class="legend-text" x="631" y="844">LLM authority</text>
+  <rect class="det" x="780" y="826" width="34" height="24"/>
+  <text class="legend-text" x="826" y="844">Deterministic authority</text>
+</svg>

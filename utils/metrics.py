@@ -58,7 +58,7 @@ def extract_table_refs(sql: str) -> List[str]:
         return []
 
     cte_names: Set[str] = set()
-    with_expr = ast.args.get("with")
+    with_expr = ast.args.get("with_")
     if with_expr:
         for cte in with_expr.find_all(exp.CTE):
             if cte.alias_or_name:

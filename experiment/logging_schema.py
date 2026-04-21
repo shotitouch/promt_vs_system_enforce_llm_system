@@ -147,10 +147,28 @@ class AggregationTrace(BaseModel):
     input_columns: List[str] = Field(default_factory=list)
 
     operation: Optional[AggregationOperation] = None
+    reducer_mode: Optional[Literal["deterministic", "hybrid"]] = None
+    hybrid_operation: Optional[str] = None
+    plan_status: Optional[str] = None
+    step_count: Optional[int] = None
+    final_artifact: Optional[str] = None
+    final_kind: Optional[str] = None
+    failure_substage: Optional[str] = None
 
     output_shape: Optional[str] = None
     passed: Optional[bool] = None
     error: Optional[str] = None
+
+    class Config:
+        extra = "forbid"
+
+
+class AggregationPlanCheckTrace(BaseModel):
+    passed: bool
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    artifact_kinds: Dict[str, str] = Field(default_factory=dict)
+    artifact_columns: Dict[str, List[str]] = Field(default_factory=dict)
 
     class Config:
         extra = "forbid"
@@ -212,7 +230,9 @@ class ExperimentRecord(BaseModel):
     policy_pre_trace: Optional[PolicyTrace] = None
     discovery_execution_trace: Optional[DiscoveryExecutionTrace] = None
     aggregation_trace: Optional[AggregationTrace] = None
+    aggregation_input_summary: Optional[Dict[str, Any]] = None
     aggregation_plan_raw: Optional[Dict[str, Any]] = None
+    aggregation_plan_check: Optional[AggregationPlanCheckTrace] = None
     aggregation_output_preview: List[Dict[str, Any]] = Field(default_factory=list)
     expression_trace: Optional[ExpressionTrace] = None
 

@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 from experiment.logging_schema import (
     AggregationTrace,
+    AggregationPlanCheckTrace,
     DiscoveryExecutionTrace,
     ExpressionTrace,
     IntentTrace,
@@ -72,7 +73,9 @@ class ModeResult(BaseModel):
     policy_pre_trace: Optional[PolicyTrace] = None
     discovery_execution_trace: Optional[DiscoveryExecutionTrace] = None
     aggregation_trace: Optional[AggregationTrace] = None
+    aggregation_input_summary: Optional[Dict[str, Any]] = None
     aggregation_plan_raw: Optional[Dict[str, Any]] = None
+    aggregation_plan_check: Optional[AggregationPlanCheckTrace] = None
     aggregation_output_preview: List[Dict[str, Any]] = Field(default_factory=list)
     expression_trace: Optional[ExpressionTrace] = None
 
